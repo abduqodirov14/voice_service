@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+edge-tts
+aiofiles
+python-multipart
+pydantic
