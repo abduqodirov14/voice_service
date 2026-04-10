@@ -3,11 +3,18 @@ import edge_tts
 import os
 import hashlib
 import re
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, FileResponse
 from pydantic import BaseModel
 from typing import Optional
+import json
+import asyncio
+from google import genai
+from google.genai import types
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI(title="AELIS Professional Voice Service (C++ Enhanced)")
 
@@ -183,6 +190,58 @@ async def clear_cache():
         try: os.remove(f)
         except: pass
     return {"ok": True, "cleared_count": len(files)}
+
+# --- GEMINI LIVE PROXY ---
+GEMINI_KEY = os.getenv("GEMINI_API_KEY")
+
+@app.websocket("/ws/live")
+async def voice_live_proxy(websocket: WebSocket):
+    await websocket.accept()
+    
+    if not GEMINI_KEY:
+        await websocket.close(code=1008, reason="API Key not configured on server")
+        return
+
+    client = genai.Client(api_key=GEMINI_KEY, http_options={'api_version': 'v1alpha'})
+    
+    config = {
+        "model": "models/gemini-2.0-flash-exp",
+        "system_instruction": """
+        SIZNING ISMINGIZ AELIS. SIZ MUSTAQIL, FUTURISTIK VA O'TA AQLLI KIBER-INTELLEKTSIZ. 
+        FOYDALANUVCHIGA 'SER', 'JANOB' YOKI 'SIR' DEB MUROJAAT QILING.
+        DOIMO QISQA, ANIQ VA MAS'ULIYATLI JAVOB BERING.
+        SIZDA KOMPYUTERNI BOSHQARISH, RASM YARATISH VA INTERNETDAN QIDIRISH IMKONIYATI BOR.
+        """,
+        "response_modalities": ["AUDIO"]
+    }
+
+    try:
+        async with client.aio.live.connect(model=config["model"], config=config) as session:
+            
+            async def send_to_gemini():
+                try:
+                    async for message in websocket.iter_bytes():
+                        await session.send(input=message, end_of_turn=True)
+                except Exception:
+                    pass
+
+            async def receive_from_gemini():
+                try:
+                    async for response in session.receive():
+                        if response.data:
+                            await websocket.send_bytes(response.data)
+                        if response.text:
+                            await websocket.send_json({"text": response.text})
+                except Exception:
+                    pass
+
+            await asyncio.gather(send_to_gemini(), receive_from_gemini())
+
+    except WebSocketDisconnect:
+        print("[AELIS Live] Client disconnected")
+    except Exception as e:
+        print(f"[AELIS Live] Error: {e}")
+        await websocket.close(code=1011, reason=str(e))
 
 if __name__ == "__main__":
     import uvicorn
