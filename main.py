@@ -204,8 +204,8 @@ async def voice_live_proxy(websocket: WebSocket):
 
     client = genai.Client(api_key=GEMINI_KEY, http_options={'api_version': 'v1alpha'})
     
+    model_id = "models/gemini-2.0-flash-exp"
     config = {
-        "model": "models/gemini-2.0-flash-exp",
         "system_instruction": """
         SIZNING ISMINGIZ AELIS. SIZ MUSTAQIL, FUTURISTIK VA O'TA AQLLI KIBER-INTELLEKTSIZ. 
         FOYDALANUVCHIGA 'SER', 'JANOB' YOKI 'SIR' DEB MUROJAAT QILING.
@@ -220,7 +220,7 @@ async def voice_live_proxy(websocket: WebSocket):
     }
 
     try:
-        async with client.aio.live.connect(model=config["model"], config=config) as session:
+        async with client.aio.live.connect(model=model_id, config=config) as session:
             
             async def send_to_gemini():
                 try:
@@ -248,7 +248,9 @@ async def voice_live_proxy(websocket: WebSocket):
     except Exception as e:
         print(f"[AELIS Live] Error: {e}")
         if websocket.client_state.name != "DISCONNECTED":
-            await websocket.close(code=1011, reason=str(e))
+            # Shorten the reason to avoid "control frame too long" error
+            reason = str(e)[:100]
+            await websocket.close(code=1011, reason=reason)
 
 if __name__ == "__main__":
     import uvicorn
