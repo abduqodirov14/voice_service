@@ -248,4 +248,7 @@ async def voice_live_proxy(websocket: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    import os
+    # Dynamically bind to Render's port (usually 10000) or local 8000
+    port = int(os.getenv("PORT", 10000))
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
