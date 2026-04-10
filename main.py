@@ -221,9 +221,10 @@ async def voice_live_proxy(websocket: WebSocket):
             async def send_to_gemini():
                 try:
                     async for message in websocket.iter_bytes():
-                        await session.send(input=message, end_of_turn=True)
-                except Exception:
-                    pass
+                        # Direct audio passthrough to Gemini
+                        await session.send(input={"data": message, "mime_type": "audio/pcm;rate=16000"})
+                except Exception as e:
+                    print(f"[AELIS Live Send Error] {e}")
 
             async def receive_from_gemini():
                 try:
@@ -231,9 +232,10 @@ async def voice_live_proxy(websocket: WebSocket):
                         if response.data:
                             await websocket.send_bytes(response.data)
                         if response.text:
+                            # Send any text transcripts back to UI
                             await websocket.send_json({"text": response.text})
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"[AELIS Live Receive Error] {e}")
 
             await asyncio.gather(send_to_gemini(), receive_from_gemini())
 
@@ -241,7 +243,8 @@ async def voice_live_proxy(websocket: WebSocket):
         print("[AELIS Live] Client disconnected")
     except Exception as e:
         print(f"[AELIS Live] Error: {e}")
-        await websocket.close(code=1011, reason=str(e))
+        if websocket.client_state.name != "DISCONNECTED":
+            await websocket.close(code=1011, reason=str(e))
 
 if __name__ == "__main__":
     import uvicorn
