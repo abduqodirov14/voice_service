@@ -63,10 +63,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Professional Neural Voices
 VOICES = {
-    "durdon": "uz-UZ-MadinaNeural",
-    "dilshod": "uz-UZ-SardorNeural",
-    "diyor": "uz-UZ-SardorNeural"
+    "aelis": "en-US-AvaMultilingualNeural",
+    "core": "en-US-AndrewMultilingualNeural"
 }
 
 def get_cache_path(text: str, voice: str):
@@ -117,7 +117,7 @@ async def text_to_speech(
     
     normalized_text = re.sub(r'[*_#`]', '', normalized_text)
     if voice not in VOICES:
-        voice = "durdon"
+        voice = "aelis"
     
     voice_name = VOICES[voice]
     cache_key = f"{normalized_text}-{voice}".encode('utf-8')
